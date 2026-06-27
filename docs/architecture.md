@@ -6,7 +6,7 @@ Build a production-grade multi-agent research assistant capable of understanding
 
 ## Tech Stack
 
-Backend:
+```Backend:
 - FastAPI
 
 Frontend:
