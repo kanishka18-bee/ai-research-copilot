@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from backend.app.api.routes.document import router as document_router
+from app.api.routes.document import router as document_router
 
 api_router = APIRouter()
 
