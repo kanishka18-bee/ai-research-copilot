@@ -216,3 +216,23 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+
+# AI Research Copilot
+
+
+# Uploaded PDFs
+backend/storage/documents/*
+!backend/storage/documents/.gitkeep
+
+# Temporary generated files
+backend/storage/temp/*
+!backend/storage/temp/.gitkeep
+
+# Exported reports
+backend/storage/exports/*
+!backend/storage/exports/.gitkeep
+
+# Embeddings (will be generated later)
+backend/storage/embeddings/*
+!backend/storage/embeddings/.gitkeep
