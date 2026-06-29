@@ -8,9 +8,12 @@ from fastapi import HTTPException, UploadFile, status
 from app.core.config import DOCUMENT_STORAGE, MAX_FILE_SIZE
 from app.schemas.document import DocumentUploadResponse
 from app.services.pdf_parser import PDFParser
+from app.services.chunking import TextChunker
 
 logger = logging.getLogger(__name__)
+
 pdf_parser = PDFParser()
+text_chunker = TextChunker()
 
 
 class DocumentService:
@@ -82,8 +85,15 @@ class DocumentService:
         )
 
         parsed_pdf = pdf_parser.parse(stored_file)
-        print(parsed_pdf)  # For debugging purposes, you can remove this in production
         
+        chunks = text_chunker.split_text(parsed_pdf["text"])
+
+        logger.info(
+            "Generated %d chunks for document '%s'.",
+            len(chunks),
+            filename
+        )
+
         # return response
         return DocumentUploadResponse(
             id=document_id,
