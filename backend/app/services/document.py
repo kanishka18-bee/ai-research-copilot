@@ -7,8 +7,11 @@ from pathlib import Path
 from fastapi import HTTPException, UploadFile, status
 from app.core.config import DOCUMENT_STORAGE, MAX_FILE_SIZE
 from app.schemas.document import DocumentUploadResponse
+from app.services.pdf_parser import PDFParser
 
 logger = logging.getLogger(__name__)
+pdf_parser = PDFParser()
+
 
 class DocumentService:
 
@@ -47,6 +50,7 @@ class DocumentService:
                 detail=f"Maximum allowed file size is {MAX_FILE_SIZE // (1024 * 1024)} MB."
             )
         
+        
         # generate unique document ID 
         document_id = str(uuid.uuid4())
         
@@ -58,6 +62,7 @@ class DocumentService:
         
         # Path to backend/storage/documents
         storage_path = DOCUMENT_STORAGE
+        storage_path.mkdir(parents=True, exist_ok=True)  # Ensure the storage directory exists
         
         # create folder if it doesn't exist
         storage_path.mkdir(parents=True, exist_ok=True)
@@ -75,6 +80,9 @@ class DocumentService:
         logger.info(
             f"Document uploaded successfully: {filename} ({size} bytes)"
         )
+
+        parsed_pdf = pdf_parser.parse(stored_file)
+        print(parsed_pdf)  # For debugging purposes, you can remove this in production
         
         # return response
         return DocumentUploadResponse(
