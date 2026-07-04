@@ -2,7 +2,19 @@ import logging
 import numpy as np
 import faiss
 
+from dataclasses import dataclass
+
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class SearchResult:
+    """
+    Represents a semantic search result returned by the vector store.
+    """
+    score: float
+    chunk: str
+    index: int
 
 
 class VectorStore:
@@ -38,7 +50,7 @@ class VectorStore:
         self.index.add(embeddings)
 
         self.chunks.extend(chunks)
-
+    
         logger.info(
             "Added %d embeddings to FAISS.",
             len(chunks),
@@ -46,6 +58,9 @@ class VectorStore:
 
     @property
     def size(self) -> int:
+        """
+        Returns the number of indexed vectors.
+        """
         return self.index.ntotal
 
     def save(self):
@@ -58,7 +73,7 @@ class VectorStore:
         self,
         query_embedding: np.ndarray,
         top_k: int = 5,
-    ) -> list[str]:
+    ) -> list[SearchResult]:
 
         if self.size == 0:
             logger.warning("FAISS index is empty.")
@@ -75,23 +90,37 @@ class VectorStore:
                 f"got {query_embedding.shape[1]}."
             )
 
+        top_k = min(top_k, self.size)
+
         logger.info(
             "Searching FAISS index (top_k=%d).",
             top_k,
         )
-
-        _, indices = self.index.search(
+        
+        distances, indices = self.index.search(
             query_embedding,
             top_k,
         )
 
-        results: list[str] = []
+        results: list[SearchResult] = []
 
-        for index in indices[0]:
+        for i, index in enumerate(indices[0]):
             if index == -1:
                 continue
 
-            results.append(self.chunks[index])
+            results.append(
+                SearchResult(
+                    score=float(distances[0][i]),
+                    chunk=self.chunks[index],
+                    index=index
+                )
+            )
+
+        if results:
+            logger.info(
+                "Top similarity score: %.4f",
+                results[0].score,
+            )
 
         logger.info(
             "Retrieved %d matching chunks.",
