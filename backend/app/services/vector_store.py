@@ -2,9 +2,12 @@ import logging
 import numpy as np
 import faiss
 
+from app.core.config import SIMILARITY_THRESHOLD
+
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
+
 
 
 @dataclass
@@ -107,16 +110,27 @@ class VectorStore:
         for i, index in enumerate(indices[0]):
             if index == -1:
                 continue
+            
+            score = float(distances[0][i])
+            
+            if score < SIMILARITY_THRESHOLD:
+                continue
 
             results.append(
                 SearchResult(
-                    score=float(distances[0][i]),
+                    score=score,
                     chunk=self.chunks[index],
                     index=index
                 )
             )
 
-        if results:
+        if not results:
+            logger.info(
+                "No search results met the similarity threshold (%.2f).",
+                SIMILARITY_THRESHOLD,
+            )
+        
+        else:
             logger.info(
                 "Top similarity score: %.4f",
                 results[0].score,

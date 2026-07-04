@@ -49,7 +49,7 @@ class SearchService:
         )
 
         logger.info(
-            "Retrieved %d matching chunks.",
+            "Semantic search completed with %d results.",
             len(results),
         )
 
