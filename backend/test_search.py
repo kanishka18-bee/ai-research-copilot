@@ -9,7 +9,7 @@ from app.dependencies.services import (
 )
 
 pdf_path = Path(
-    r"C:\Users\kanis\OneDrive\Desktop\ai-research-copilot\backend\storage\documents\3651781.3651800.pdf"
+    r"C:\Users\kanis\OneDrive\Desktop\ai-research-copilot\backend\storage\documents\kanishka-kashyap-resume1.pdf"
 )
 
 parsed_pdf = pdf_parser.parse(pdf_path)
@@ -26,7 +26,7 @@ vector_store.add_embeddings(
     embeddings,
 )
 
-query = "SparseGraphSage contributions"
+query = "What programming languages does candidate know?"
 
 results = search_service.search(query)
 
@@ -34,7 +34,7 @@ print("\nTop Results:\n")
 
 for i, result in enumerate(results, start=1):
     print(f"Result {i}")
-    print(f"Chunk Index: {result.index}")   # <-- after we add index
+    print(f"Chunk Index: {result.index}")   
     print(f"Score: {result.score:.4f}")
     print(result.chunk[:500])
     print()
