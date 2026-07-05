@@ -12,6 +12,7 @@ pdf_parser = PDFParser()
 text_chunker = TextChunker()
 embedding_generator = EmbeddingGenerator()
 vector_store = VectorStore()
+vector_store.load()  # Load existing embeddings and chunks from storage
 
 search_service = SearchService(
     embedding_generator,
