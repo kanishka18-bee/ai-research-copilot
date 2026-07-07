@@ -8,6 +8,8 @@ from fastapi import HTTPException, UploadFile, status
 from app.core.config import DOCUMENT_STORAGE, MAX_FILE_SIZE
 from app.schemas.document import DocumentUploadResponse
 
+from app.models.metadata import ChunkMetadata
+
 from app.dependencies.services import (
     pdf_parser,
     text_chunker,
@@ -102,21 +104,38 @@ class DocumentService:
         
         chunks = text_chunker.split_text(text)
 
-        embeddings = embedding_generator.embed(chunks)
+        chunk_metadata = [
+            ChunkMetadata(
+                chunk=chunk,
+                document_id=document_id,
+                filename=filename,
+                page_number=None,
+            )
+            for chunk in chunks
+        ]
         
-        if len(embeddings) != len(chunks):
+        chunk_texts = [
+            metadata.chunk
+            for metadata in chunk_metadata
+        ]
+        
+        embeddings = embedding_generator.embed(
+            chunk_texts
+        )
+        
+        if len(embeddings) != len(chunk_metadata):
             raise RuntimeError(
                 "Embedding generation returned an unexpected number of vectors."
             )
 
         vector_store.add_embeddings(
-            chunks,
+            chunk_metadata,
             embeddings,
         )
 
         logger.info(
-            "Indexed %d chunks for document '%s'. Vector store size: %d.",
-            len(chunks),
+            "Indexed %d chunk metadata records for document '%s'. Vector store size: %d.",
+            len(chunk_metadata),
             filename,
             vector_store.size,
         )

@@ -9,7 +9,9 @@ from app.core.config import (
     EMBEDDING_STORAGE,
 )
 
-from dataclasses import dataclass
+from app.models.metadata import ChunkMetadata
+
+from dataclasses import dataclass, asdict
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +24,7 @@ class SearchResult:
     returned by the vector store.
     """
     score: float
-    chunk: str
+    metadata: ChunkMetadata
     index: int
 
 
@@ -37,13 +39,13 @@ class VectorStore:
 
         self.index = faiss.IndexFlatIP(self.dimension)
 
-        self.chunks: list[str] = []
+        self.chunk_metadata: list[ChunkMetadata] = []
         
         self.storage_path = EMBEDDING_STORAGE
         
         self.index_file = self.storage_path / "index.faiss"
         
-        self.chunks_file = self.storage_path / "chunks.json"
+        self.metadata_file = self.storage_path / "metadata.json"
         
         self.storage_path.mkdir(
             parents=True,
@@ -54,14 +56,18 @@ class VectorStore:
         logger.info("FAISS vector store initialized.")
 
 
-    def add_embeddings(self, chunks: list[str], embeddings: np.ndarray) -> None:
+    def add_embeddings(
+        self, 
+        metadata: list[ChunkMetadata], 
+        embeddings: np.ndarray
+    ) -> None:
 
-        if not chunks:
-            logger.warning("No chunks to add.")
+        if not metadata:
+            logger.warning("No metadata to add.")
             return
 
-        if len(chunks) != len(embeddings):
-            raise ValueError("Chunks and embeddings must have the same length.")
+        if len(metadata) != len(embeddings):
+            raise ValueError("Metadata and embeddings must have the same length.")
 
         if embeddings.shape[1] != self.dimension:
             raise ValueError(
@@ -71,13 +77,13 @@ class VectorStore:
 
         self.index.add(embeddings)
 
-        self.chunks.extend(chunks)
+        self.chunk_metadata.extend(metadata)
         
         self.save()
     
         logger.info(
             "Added %d embeddings to FAISS.",
-            len(chunks),
+            len(metadata),
         )
 
     @property
@@ -96,13 +102,13 @@ class VectorStore:
             )
 
             with open(
-                self.chunks_file, 
+                self.metadata_file, 
                 "w",
                 encoding="utf-8",
             ) as file:
             
                 json.dump(
-                    self.chunks, 
+                    [asdict(metadata) for metadata in self.chunk_metadata],
                     file,
                     ensure_ascii=False,
                     indent=2,
@@ -123,17 +129,17 @@ class VectorStore:
         try:
             
             index_exists = self.index_file.exists()
-            chunks_exist = self.chunks_file.exists()
+            metadata_exists = self.metadata_file.exists()
             
-            if not index_exists and not chunks_exist:
+            if not index_exists and not metadata_exists:
                 logger.info(
                     "No existing vector store found. Starting with an empty index."    
                 )
                 return
             
-            if index_exists != chunks_exist:
+            if index_exists != metadata_exists:
                 raise RuntimeError(
-                    "Vector store is incomplete. Both index.faiss and chunks.json are required."
+                    "Vector store is incomplete. Both index.faiss and metadata.json are required."
                 )
             
             self.index = faiss.read_index(
@@ -141,22 +147,37 @@ class VectorStore:
             )
             
             with open(
-                self.chunks_file,
+                self.metadata_file,
                 "r",
                 encoding="utf-8",
             ) as file:
                 
-                self.chunks = json.load(file)
+                content = file.read().strip()
+                
+                if not content:
+                    logger.warning(
+                        "Metadata file is empty. Starting with an empty vector store."
+                    )
+                    
+                    self.chunk_metadata = []
+                    return
+                
+                loaded_metadata = json.loads(content)
+                
+                self.chunk_metadata = [
+                    ChunkMetadata(**metadata)
+                    for metadata in loaded_metadata
+                ]
             
-            if self.index.ntotal != len(self.chunks):
+            if self.index.ntotal != len(self.chunk_metadata):
                 raise RuntimeError(
                     "Vector store is inconsistent: embedding count does not match chunk count."
                 )
                 
             logger.info(
-                "Loaded %d vectors and %d chunks from storage.",
+                "Loaded %d vectors and %d chunk metadata records.",
                 self.index.ntotal,
-                len(self.chunks),
+                len(self.chunk_metadata),
             )
             
         except Exception:
@@ -213,7 +234,7 @@ class VectorStore:
             results.append(
                 SearchResult(
                     score=score,
-                    chunk=self.chunks[index],
+                    metadata=self.chunk_metadata[index],
                     index=index
                 )
             )
@@ -231,7 +252,7 @@ class VectorStore:
             )
 
         logger.info(
-            "Retrieved %d matching chunks.",
+            "Retrieved %d matching chunk metadata records.",
             len(results),
         )
 

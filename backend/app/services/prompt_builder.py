@@ -26,7 +26,13 @@ class PromptBuilder:
             raise ValueError("Context cannot be empty.")
 
         context_text = "\n\n".join(
-            f"Context {i + 1}:\n{result.chunk}" for i, result in enumerate(context)
+            f"""Context {i + 1}
+        Document: {result.metadata.filename}
+        
+        Content: 
+        {result.metadata.chunk}
+        """     
+            for i, result in enumerate(context)
         )
 
         prompt = dedent(
