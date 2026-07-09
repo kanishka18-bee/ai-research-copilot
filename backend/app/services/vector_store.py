@@ -10,6 +10,8 @@ from app.core.config import (
 )
 
 from app.models.metadata import ChunkMetadata
+from app.models.document_info import DocumentInfo
+from app.services.embeddings import EmbeddingGenerator
 
 from dataclasses import dataclass, asdict
 
@@ -185,7 +187,31 @@ class VectorStore:
                 "Failed to load vector store."
             )
             raise
+          
+    def list_documents(self) -> list[DocumentInfo]:
+        """
+        Returns a list of uploaded documents.
+        """
+        documents: dict[str, DocumentInfo] = {}
+        
+        for metadata in self.chunk_metadata:
+            document_id = metadata.document_id
             
+            if document_id not in documents:
+                documents[document_id] = DocumentInfo(
+                    document_id=document_id,
+                    filename=metadata.filename,
+                    chunk_count=1,
+                )
+            else:
+                documents[document_id].chunk_count += 1
+
+        logger.info(
+            "Retrieved %d unique documents from chunk metadata.",
+            len(documents),
+        )
+
+        return list(documents.values())
 
     def search(
         self,
@@ -257,3 +283,74 @@ class VectorStore:
         )
 
         return results
+    
+    def delete_document(
+        self,
+        document_id: str,
+        embedding_generator: EmbeddingGenerator,
+    ) -> None:
+        """
+        Removes all chunk metadata and embeddings associated with a document,
+        rebuilds the FAISS index, and persists the updated vector store.
+        """
+        
+        logger.info(
+            "Deleting document '%s' from vector store.",
+            document_id
+        )
+        
+        remaining_metadata = [
+            metadata
+            for metadata in self.chunk_metadata
+            if metadata.document_id != document_id
+        ]
+        
+        deleted_count = len(self.chunk_metadata) - len(remaining_metadata)
+
+        if deleted_count == 0:
+            raise ValueError(
+                f"Document '{document_id}' not found in vector store."
+            )
+            
+        if not remaining_metadata:
+            
+            self.index = faiss.IndexFlatIP(self.dimension)
+            self.chunk_metadata = []
+            self.save()
+            
+            logger.info(
+                "Deleted document '%s'. Vector store is now empty.",
+                document_id
+            )
+            
+            return
+        
+        remaining_chunks = [
+            metadata.chunk
+            for metadata in remaining_metadata
+        ]
+            
+        embeddings = embedding_generator.embed(
+            remaining_chunks
+        )
+            
+        if len(embeddings) != len(remaining_metadata):
+            raise RuntimeError(
+                "Embedding generation returned an unexpected number of vectors."
+            )
+        
+        self.index = faiss.IndexFlatIP(
+            self.dimension
+        )
+            
+        self.index.add(embeddings)
+            
+        self.chunk_metadata = remaining_metadata
+            
+        self.save()
+            
+        logger.info(
+            "Deleted document '%s' and rebuilt the vector store with %d remaining chunks.",
+            document_id,
+            len(remaining_metadata)
+        )
