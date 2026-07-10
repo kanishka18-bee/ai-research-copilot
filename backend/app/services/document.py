@@ -98,23 +98,43 @@ class DocumentService:
 
         parsed_pdf = pdf_parser.parse(stored_file)
 
-        text = parsed_pdf["text"]
-
-        chunks = text_chunker.split_text(text)
-
-        chunk_metadata = [
-            ChunkMetadata(
-                chunk=chunk,
-                document_id=document_id,
-                filename=filename,
-                page_number=None,
+        pages = parsed_pdf["pages"]
+        
+        chunk_metadata: list[ChunkMetadata] = []
+            
+        for page in pages:
+            
+            page_number = page["page_number"]
+            
+            chunks = text_chunker.split_text(
+                page["text"]
             )
-            for chunk in chunks
+            
+            for chunk in chunks:
+                
+                chunk_metadata.append(
+                    ChunkMetadata(
+                        chunk=chunk,
+                        document_id=document_id,
+                        filename=filename,
+                        page_number=page_number,
+                    )
+                )
+                
+        if not chunk_metadata:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="The uploaded PDF contains no extractable text."
+            )
+
+        chunk_texts = [
+            metadata.chunk 
+            for metadata in chunk_metadata
         ]
 
-        chunk_texts = [metadata.chunk for metadata in chunk_metadata]
-
-        embeddings = embedding_generator.embed(chunk_texts)
+        embeddings = embedding_generator.embed(
+            chunk_texts
+        )
 
         if len(embeddings) != len(chunk_metadata):
             raise RuntimeError(

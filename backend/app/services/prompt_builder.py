@@ -25,15 +25,30 @@ class PromptBuilder:
         if not context:
             raise ValueError("Context cannot be empty.")
 
-        context_text = "\n\n".join(
-            f"""Context {i + 1}
-        Document: {result.metadata.filename}
-        
-        Content: 
-        {result.metadata.chunk}
-        """     
-            for i, result in enumerate(context)
-        )
+        context_blocks: list[str] = []
+
+        for i, result in enumerate(context):
+            page = (
+                f"Page: {result.metadata.page_number}"
+                if result.metadata.page_number is not None
+                else "Page: Unknown"
+            )
+
+            context_blocks.append(
+                dedent(
+                    f"""
+                    Context {i + 1}
+
+                    Document: {result.metadata.filename}
+                    {page}
+
+                    Content:
+                    {result.metadata.chunk}
+                    """
+                ).strip()
+            )
+
+        context_text = "\n\n".join(context_blocks)
 
         prompt = dedent(
             f"""
@@ -48,7 +63,12 @@ class PromptBuilder:
         Do not use outside knowledge.
         Do not make up facts.
         Keep the answer concise, accurate, and based only on the retrieved context.
+        
+        Every factual statement in your answer must include its supporting document name and page number in parentheses.
 
+        Example:
+        The model uses Graph Neural Networks (Source: paper.pdf, Page 7).
+        
         ------------------------
         Context
         ------------------------
@@ -64,7 +84,8 @@ class PromptBuilder:
         ------------------------
         Answer
         ------------------------
-        """)
+        """
+        )
 
         logger.info(
             "Prompt built successfully using %d context chunks.",
