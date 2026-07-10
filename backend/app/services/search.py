@@ -1,4 +1,5 @@
 import logging
+# from unittest import result
 
 from app.services.embeddings import EmbeddingGenerator
 from app.services.vector_store import (
@@ -48,6 +49,18 @@ class SearchService:
             top_k,
         )
 
+        for i, result in enumerate(results, start=1):
+            logger.info("\nResult #%d", i)
+            logger.info("Document: %s", result.metadata.filename)
+            logger.info("Page: %s", result.metadata.page_number)
+            logger.info("Score: %.4f", result.score)
+            logger.info("Chunk:\n%s", result.metadata.chunk)
+
+        logger.info(
+            "Semantic search completed with %d results.",
+            len(results),
+        )
+        
         logger.info(
             "Semantic search completed with %d results.",
             len(results),
