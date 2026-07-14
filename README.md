@@ -1,4 +1,4 @@
-# 🧠 AI Research Copilot
+# 🧠 AI Research Copilot - RAG Application
 
 > A production-inspired Retrieval-Augmented Generation (RAG) platform that enables semantic search and AI-powered question answering across research papers using FastAPI, FAISS, Sentence Transformers, and Google's Gemini.
 
